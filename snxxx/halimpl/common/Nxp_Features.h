@@ -49,6 +49,8 @@
 
 #define NCI_CMD_RSP_SUCCESS_SW1 0x60
 #define NCI_CMD_RSP_SUCCESS_SW2 0x00
+#define NCI_CORE_INIT_RSP_SW1 0x40
+#define NCI_CORE_INIT_RSP_SW2 0x01
 #define FW_DL_RSP_FIRST_BYTE 0x00
 
 /* Supported EE */
@@ -228,6 +230,10 @@ extern tNfc_featureList nfcFL;
         CONFIGURE_FEATURELIST_NFCC(pn557)               \
         nfcFL.nfccFL._NFCC_SPI_FW_DOWNLOAD_SYNC = true; \
         break;                                          \
+      case pn80T:                                       \
+        CONFIGURE_FEATURELIST_NFCC(pn553)               \
+        nfcFL.nfccFL._NFCC_SPI_FW_DOWNLOAD_SYNC = true; \
+        break;                                          \
       case sn100u:                                      \
         CONFIGURE_FEATURELIST_NFCC(sn100u)              \
         nfcFL.nfccFL._NFCC_SPI_FW_DOWNLOAD_SYNC = true; \
@@ -254,6 +260,14 @@ extern tNfc_featureList nfcFL;
     nfcFL.nfccFL._NFCC_4K_FW_SUPPORT = false;                          \
     UPDATE_NFCC_CAPABILITY()                                           \
     switch (chipType) {                                                \
+      case pn553:                                                      \
+        nfcFL.nfccFL._NFCC_I2C_READ_WRITE_IMPROVEMENT = true;          \
+        nfcFL.nfccFL._NFCC_MIFARE_TIANJIN = true;                      \
+        nfcFL.nfccFL._NFCC_FORCE_FW_DOWNLOAD = false;                  \
+        nfcFL._FW_MOBILE_MAJOR_NUMBER = FW_MOBILE_MAJOR_NUMBER_PN553;  \
+        STRCPY_FW("libpn553_fw")                                       \
+        STRCPY_FW_BIN("pn553")                                         \
+        break;                                                         \
       case pn557:                                                      \
         nfcFL.nfccFL._NFCC_I2C_READ_WRITE_IMPROVEMENT = true;          \
         STRCPY_FW("libpn557_fw")                                       \

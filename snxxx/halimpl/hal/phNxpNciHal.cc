@@ -639,7 +639,7 @@ NFCSTATUS phNxpNciHal_CheckValidFwVersion(void) {
   ufw_current_major_no = ((0x00FF) & (wFwVer >> 8U));
   NXPLOG_NCIHAL_D("%s current_major_no = 0x%x", __func__, ufw_current_major_no);
   NXPLOG_NCIHAL_D("%s fw_maj_ver = 0x%x", __func__, fw_maj_ver);
-  if (IS_CHIP_TYPE_EQ(pn557)) {
+  if (IS_CHIP_TYPE_EQ(pn557) || IS_CHIP_TYPE_EQ(pn553)) {
     if (ufw_current_major_no >= fw_maj_ver) {
       /* if file major version is grater than the one from the
          Nfc init command allow FW download
@@ -834,7 +834,7 @@ int phNxpNciHal_MinOpen() {
     return phNxpNciHal_MinOpen_Clean(nfc_dev_node);
   }
 
-  /* Get the chip-type to know if it is PN557
+  /* Get the chip-type to know if it is PN557 or PN553
    Then don't send the Get version command */
   unsigned long chipInfo = 0;
   if (GetNxpNumValue(NAME_NXP_NFC_CHIP, &chipInfo, sizeof(chipInfo))) {
@@ -842,8 +842,9 @@ int phNxpNciHal_MinOpen() {
   }
   phNxpNciHal_check_and_recover_fw();
   if (gsIsFirstHalMinOpen) {
-    /*Skip get version command for pn557*/
-    if (chipInfo != pn557) phNxpNciHal_CheckAndHandleFwTearDown();
+    /*Skip get version command for pn557 and pn553*/
+    if (chipInfo != pn557 && chipInfo != pn553)
+      phNxpNciHal_CheckAndHandleFwTearDown();
   }
 
   uint8_t seq_handler_offset = 0x00;
@@ -1777,7 +1778,8 @@ int phNxpNciHal_core_initialized(uint16_t core_init_rsp_params_len,
     goto retry_core_init;
   }
 
-  if (IS_CHIP_TYPE_EQ(pn557)) enable_ven_cfg = PN557_VEN_CFG_DEFAULT;
+  if (IS_CHIP_TYPE_EQ(pn557) || IS_CHIP_TYPE_EQ(pn553))
+    enable_ven_cfg = PN557_VEN_CFG_DEFAULT;
   if (IS_CHIP_TYPE_GE(sn220u) && phNxpNciHal_isULPDetSupported()) {
     enable_ven_cfg = 0x00;
   }
@@ -2464,7 +2466,7 @@ int phNxpNciHal_close(bool bShutdown) {
       if (status != NFCSTATUS_SUCCESS) {
         NXPLOG_NCIHAL_E("Autonomous mode Disable: Failed");
       }
-    } else if (IS_CHIP_TYPE_EQ(pn557)) {
+    } else if (IS_CHIP_TYPE_EQ(pn557) || IS_CHIP_TYPE_EQ(pn553)) {
       status = phNxpNciHal_send_ext_cmd(sizeof(cmd_ce_in_phone_off_pn557),
                                         cmd_ce_in_phone_off_pn557);
       if (status != NFCSTATUS_SUCCESS) {
@@ -3026,9 +3028,7 @@ static void phNxpNciHal_nfccClockCfgRead(void) {
 int phNxpNciHal_determineConfiguredClockSrc() {
   uint8_t param_clock_src = CLK_SRC_PLL;
   if (nxpprofile_ctrl.bClkSrcVal == CLK_SRC_PLL) {
-    if (IS_CHIP_TYPE_EQ(pn553)) {
-      param_clock_src = param_clock_src << 3;
-    } else if (IS_CHIP_TYPE_GE(sn100u)) {
+    if (IS_CHIP_TYPE_EQ(pn553) || IS_CHIP_TYPE_GE(sn100u)) {
       param_clock_src = 0;
     }
 
@@ -3052,7 +3052,7 @@ int phNxpNciHal_determineConfiguredClockSrc() {
       param_clock_src |= 0x0B;
     } else {
       NXPLOG_NCIHAL_E("Wrong clock freq, send default PLL@19.2MHz");
-      if (IS_CHIP_TYPE_L(sn100u))
+      if (IS_CHIP_TYPE_L(sn100u) && IS_CHIP_TYPE_NE(pn553))
         param_clock_src = 0x11;
       else
         param_clock_src = 0x01;
@@ -3169,7 +3169,13 @@ NFCSTATUS phNxpNciHal_nfccClockCfgApply(void) {
     nfcc_cur_clock_src = phNxpNciClock.p_rx_data[8];
   }
 
-  if (IS_CHIP_TYPE_L(sn100u)) {
+  if (IS_CHIP_TYPE_EQ(pn553)) {
+    nfcc_clock_set_needed =
+        (nfcc_cfg_clock_src != nfcc_cur_clock_src ||
+         phNxpNciClock.p_rx_data[16] != nxpprofile_ctrl.bTimeout)
+            ? true
+            : false;
+  } else if (IS_CHIP_TYPE_L(sn100u)) {
     nfcc_clock_set_needed =
         (nfcc_cfg_clock_src != nfcc_cur_clock_src ||
          phNxpNciClock.p_rx_data[16] == nxpprofile_ctrl.bTimeout)

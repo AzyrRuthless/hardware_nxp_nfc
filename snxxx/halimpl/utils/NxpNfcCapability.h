@@ -27,6 +27,7 @@ class capability {
   const uint16_t offsetFwRomCodeVersion = 4;
   const uint16_t offsetFwMinorVersion = 6;
   const uint16_t offsetFwMajorVersion = 7;
+  const uint16_t offsetFwMinorVersion_pn557 = 10;
   const uint16_t offsetFwMajorVersion_pn557 = 11;
   capability();
   tNFC_chipType determineChipTypeFromNciRsp(uint8_t* msg, uint16_t msg_len);

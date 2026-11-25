@@ -34,8 +34,11 @@ capability* capability::getInstance() {
 
 tNFC_chipType capability::processChipType(uint8_t* msg, uint16_t msg_len) {
   if ((msg != NULL) && (msg_len != 0)) {
-    if ((msg_len > 2) && msg[0] == NCI_CMD_RSP_SUCCESS_SW1 &&
-        msg[1] == NCI_CMD_RSP_SUCCESS_SW2) {
+    if ((msg_len > 2) &&
+        ((msg[0] == NCI_CMD_RSP_SUCCESS_SW1 &&
+          msg[1] == NCI_CMD_RSP_SUCCESS_SW2) ||
+         (msg[0] == NCI_CORE_INIT_RSP_SW1 &&
+          msg[1] == NCI_CORE_INIT_RSP_SW2))) {
       chipType = determineChipTypeFromNciRsp(msg, msg_len);
     } else if (msg[0] == FW_DL_RSP_FIRST_BYTE) {
       chipType = determineChipTypeFromDLRsp(msg, msg_len);
@@ -112,6 +115,10 @@ tNFC_chipType capability::determineChipTypeFromDLRsp(uint8_t* msg,
   } else if (msg[offsetFwRomCodeVersion] == FW_MOBILE_ROM_VERSION_SN100U &&
              msg[offsetFwMajorVersion] == FW_MOBILE_MAJOR_NUMBER_SN100U)
     chip_type = sn100u;
+  else if ((msg_len > offsetFwMajorVersion_pn557) &&
+           msg[offsetFwRomCodeVersion] == FW_MOBILE_ROM_VERSION_PN553 &&
+           msg[offsetFwMajorVersion_pn557] == FW_MOBILE_MAJOR_NUMBER_PN553)
+    chip_type = pn553;
   else if (msg[offsetFwRomCodeVersion] == FW_MOBILE_ROM_VERSION_PN557 &&
            (msg[offsetFwMajorVersion_pn557] == FW_MOBILE_ROM_VERSION_PN557 ||
             msg[offsetFwMajorVersion_pn557] == FW_MOBILE_MAJOR_NUMBER_PN557_V2))
@@ -126,11 +133,18 @@ tNFC_chipType capability::determineChipTypeFromDLRsp(uint8_t* msg,
 
 uint32_t capability::getFWVersionInfo(uint8_t* msg, uint16_t msg_len) {
   uint32_t versionInfo = 0;
-  if ((msg != NULL) && (msg_len != 0)) {
+  if ((msg != NULL) && (msg_len > offsetFwMajorVersion)) {
     if (msg[0] == 0x00) {
       versionInfo = msg[offsetFwRomCodeVersion] << 16;
-      versionInfo |= msg[offsetFwMajorVersion] << 8;
-      versionInfo |= msg[offsetFwMinorVersion];
+      if ((msg[offsetFwRomCodeVersion] == FW_MOBILE_ROM_VERSION_PN553 ||
+           msg[offsetFwRomCodeVersion] == FW_MOBILE_ROM_VERSION_PN557) &&
+          (msg_len > offsetFwMajorVersion_pn557)) {
+        versionInfo |= msg[offsetFwMajorVersion_pn557] << 8;
+        versionInfo |= msg[offsetFwMinorVersion_pn557];
+      } else {
+        versionInfo |= msg[offsetFwMajorVersion] << 8;
+        versionInfo |= msg[offsetFwMinorVersion];
+      }
     }
   }
   return versionInfo;

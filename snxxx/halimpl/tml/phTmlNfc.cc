@@ -964,7 +964,7 @@ NFCSTATUS phTmlNfc_IoCtl(phTmlNfc_ControlCode_t eControlCode) {
           } else {
             gpphTmlNfc_Context->fragment_len = PH_TMLNFC_FRGMENT_SIZE_SNXXX;
           }
-        } else if (IS_CHIP_TYPE_NE(pn557)) {
+        } else if (IS_CHIP_TYPE_GE(sn100u)) {
           gpphTmlNfc_Context->fragment_len = PH_TMLNFC_FRGMENT_SIZE_SNXXX;
         } else {
           gpphTmlNfc_Context->fragment_len = PH_TMLNFC_FRGMENT_SIZE_PN557;

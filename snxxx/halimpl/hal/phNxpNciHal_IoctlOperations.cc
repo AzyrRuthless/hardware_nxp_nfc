@@ -862,6 +862,72 @@ void phNxpNciHal_txNfccClockSetCmd(void) {
   NXPLOG_NCIHAL_D("%s : clock source = %lu, frequency = %lu", __FUNCTION__,
                   clockSource, frequency);
 
+  if (IS_CHIP_TYPE_EQ(pn553)) {
+    phNxpNciClock.isClockSet = TRUE;
+    if (srcCfgFound && (clockSource == CLK_SRC_PLL)) {
+      uint8_t set_clock_cmd_pn553[] = {0x20, 0x02, 0x09, 0x02, 0xA0, 0x03,
+                                       0x01, 0x01, 0xA0, 0x04, 0x01, 0x01};
+      uint8_t param_clock_src = 0x00;
+      unsigned long clkTimeout = CLK_TO_CFG_DEF;
+      if (GetNxpNumValue(NAME_NXP_SYS_CLOCK_TO_CFG, &clkTimeout,
+                         sizeof(clkTimeout)) <= 0 ||
+          clkTimeout < CLK_TO_CFG_DEF || clkTimeout > CLK_TO_CFG_MAX) {
+        clkTimeout = CLK_TO_CFG_DEF;
+      }
+      if (freqCfgFound) {
+        switch (frequency) {
+          case CLK_FREQ_13MHZ:
+            param_clock_src = 0x00;
+            break;
+          case CLK_FREQ_19_2MHZ:
+            param_clock_src = 0x01;
+            break;
+          case CLK_FREQ_24MHZ:
+            param_clock_src = 0x02;
+            break;
+          case CLK_FREQ_26MHZ:
+            param_clock_src = 0x03;
+            break;
+          case CLK_FREQ_38_4MHZ:
+            param_clock_src = 0x04;
+            break;
+          case CLK_FREQ_52MHZ:
+            param_clock_src = 0x05;
+            break;
+          case CLK_FREQ_32MHZ:
+            param_clock_src = 0x06;
+            break;
+          default:
+            NXPLOG_NCIHAL_E("Wrong clock freq, send default PLL@19.2MHz");
+            param_clock_src = 0x01;
+            break;
+        }
+      } else {
+        param_clock_src = 0x01;
+      }
+      set_clock_cmd_pn553[7] = param_clock_src;
+      set_clock_cmd_pn553[11] = (uint8_t)clkTimeout;
+      while (status != NFCSTATUS_SUCCESS &&
+             setClockCmdWriteRetryCnt++ < MAX_RETRY_COUNT) {
+        status = phNxpNciHal_send_ext_cmd(sizeof(set_clock_cmd_pn553),
+                                          set_clock_cmd_pn553);
+      }
+    } else if (srcCfgFound && (clockSource == CLK_SRC_XTAL)) {
+      status = phNxpNciHal_send_ext_cmd(setClkCmdLen, set_clock_cmd);
+      if (status != NFCSTATUS_SUCCESS) {
+        NXPLOG_NCIHAL_E("XTAL clock setting failed !!");
+      }
+    } else {
+      NXPLOG_NCIHAL_E("Wrong clock source. Don't apply any modification");
+    }
+    phNxpNciClock.isClockSet = FALSE;
+    if (status == NFCSTATUS_SUCCESS &&
+        phNxpNciClock.p_rx_data[3] == NFCSTATUS_SUCCESS) {
+      NXPLOG_NCIHAL_D("PN553 clock settings applied successfully");
+    }
+    return;
+  }
+
   if (srcCfgFound && freqCfgFound && (clockSource == CLK_SRC_PLL)) {
     phNxpNciClock.isClockSet = TRUE;
 
