@@ -995,6 +995,55 @@ NFCSTATUS phNxpNciHal_write_ext(uint16_t* cmd_len, uint8_t* p_cmd_data,
       //            NXPLOG_NCIHAL_D("> Going - core init optimization - END");
     }
   }
+  /*
+   * AOSP libnfc-nci sets CE_T4T_ISO_DEP_FWI to 0x70 (NCI 2.0 LI_A_RATS_TB1 MSB
+   * layout) inside p_nfa_dm_ce_cfg, which is sent only to NCI < 2.0 controllers.
+   * NCI 1.0 LI_FWI (0x58) reads FWI from the lower nibble, so 0x70 configures
+   * FWI=0 (0.302 ms) and causes terminals to drop HCE links within ~3-4 ms.
+   */
+  if (status == NFCSTATUS_SUCCESS &&
+      nxpncihal_ctrl.nci_info.nci_version != NCI_VERSION_UNKNOWN &&
+      nxpncihal_ctrl.nci_info.nci_version < NCI_VERSION_2_0 && *cmd_len >= 4 &&
+      p_cmd_data[0] == NCI_MT_CMD &&
+      p_cmd_data[1] == NXP_CORE_SET_CONFIG_CMD) {
+    uint16_t payload_end = 3 + p_cmd_data[2];
+    if (payload_end <= *cmd_len) {
+      uint8_t num_params = p_cmd_data[3];
+      uint16_t idx = 4;
+      for (uint8_t i = 0; i < num_params && idx < payload_end; i++) {
+        uint8_t param_id = p_cmd_data[idx];
+        if (param_id == 0xA0 || param_id == 0xA1) {
+          if (idx + 3 > payload_end) {
+            break;
+          }
+          uint8_t param_len = p_cmd_data[idx + 2];
+          if (idx + 3 + param_len > payload_end) {
+            break;
+          }
+          idx += 3 + param_len;
+          continue;
+        }
+        if (param_id >= 0xA2 || idx + 2 > payload_end) {
+          break;
+        }
+        uint8_t param_len = p_cmd_data[idx + 1];
+        if (idx + 2 + param_len > payload_end) {
+          break;
+        }
+        if (param_id == 0x58 && param_len == 0x01) {
+          uint8_t fwi = p_cmd_data[idx + 2];
+          uint8_t upper = (fwi >> 4) & 0x0F;
+          if ((fwi & 0x0F) == 0 && upper > 0 && upper <= 0x0E) {
+            NXPLOG_NCIHAL_D(
+                "NCI 1.0 LI_FWI workaround: remapping 0x%02x -> 0x%02x", fwi,
+                upper);
+            p_cmd_data[idx + 2] = upper;
+          }
+        }
+        idx += 2 + param_len;
+      }
+    }
+  }
   if (!phNxpTempMgr::GetInstance().IsICTempOk()) {
     NXPLOG_NCIHAL_E("> IC Temp is NOK");
     status = phNxpNciHal_process_screen_state_cmd(cmd_len, p_cmd_data, rsp_len,
